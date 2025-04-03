@@ -1,4 +1,3 @@
-pub mod ed25519;
 pub mod hpke;
 pub mod secp256k1;
 pub mod symmetric;
