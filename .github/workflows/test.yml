@@ -25,8 +25,14 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - name: Show Rust version and environment info
+        run: |
+          rustc --version
+          cargo --version
+          uname -a
+
       - name: Install dependencies
-        run: cargo build --release # Build your project to install dependencies
+        run: cargo build --release --tests
 
       - name: Run tests
-        run: cargo test --release # Run the tests
+        run: cargo test
