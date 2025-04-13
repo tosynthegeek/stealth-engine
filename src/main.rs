@@ -14,7 +14,7 @@ pub mod utils;
 type Kem = X25519HkdfSha256;
 
 fn main() -> Result<(), StealthError> {
-    let (server_privkey, server_pubkey) = server_init();
+    let (_, server_pubkey) = server_init();
     let (user_privkey, user_pubkey) = server_init();
 
     let data = "1, 2, 3, 4, 5";
@@ -28,7 +28,7 @@ fn main() -> Result<(), StealthError> {
         nonce: Some(nonce.to_vec()),
     };
 
-    let (res, res_type) = operation.process_encrypted_data(&server_privkey.to_bytes())?;
+    let (res, res_type) = operation.process_encrypted_data()?;
     let decrypted_res = hpke_decrypt_msg(&user_privkey.to_bytes(), &res, &nonce.to_vec())?;
     match res_type {
         ResultType::Number => {
