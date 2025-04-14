@@ -1,8 +1,15 @@
-use encryption::hpke::{hpke_decrypt_msg, hpke_encrypt_msg};
-use hpke::{Kem as KemTrait, Serializable, kem::X25519HkdfSha256};
-use rand::{SeedableRng, rngs::StdRng};
+#[cfg(feature = "server")]
+use actix_web::{App, HttpServer, web};
+#[cfg(feature = "server")]
+use dotenv::dotenv;
+#[cfg(feature = "server")]
+use env_logger::Env;
+#[cfg(feature = "server")]
+use handlers::handlers::{process_operation, user_init_handler};
+#[cfg(feature = "server")]
+use log::info;
 use stealth_error::StealthError;
-use types::types::{OperationRequest, ResultType};
+// use utils::utils::user_encrypt_data;
 
 pub mod enclave;
 pub mod encryption;
@@ -11,45 +18,29 @@ pub mod stealth_error;
 pub mod types;
 pub mod utils;
 
-type Kem = X25519HkdfSha256;
+#[cfg(feature = "server")]
+#[actix_web::main]
+async fn main() -> Result<(), StealthError> {
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
+    dotenv().ok();
 
-fn main() -> Result<(), StealthError> {
-    let (_, server_pubkey) = server_init();
-    let (user_privkey, user_pubkey) = server_init();
+    let address: &str = "0.0.0.0:8080";
+    info!("Starting stealth server at http://{}", address);
 
-    let data = "1, 2, 3, 4, 5";
-    let user_pub = &user_pubkey.to_bytes();
-    let nonce = server_pubkey.to_bytes();
-    let encrypted_data = hpke_encrypt_msg(&data.as_bytes(), &nonce, &server_pubkey.to_bytes())?;
-    let mut operation = OperationRequest {
-        user_pubkey: user_pub.to_vec(),
-        operation_type: "reverse_string".to_string(),
-        encrypted_data: Some(encrypted_data),
-        nonce: Some(nonce.to_vec()),
-    };
-
-    let (res, res_type) = operation.process_encrypted_data()?;
-    let decrypted_res = hpke_decrypt_msg(&user_privkey.to_bytes(), &res, &nonce.to_vec())?;
-    match res_type {
-        ResultType::Number => {
-            let result_bytes: [u8; 8] = decrypted_res.try_into().unwrap();
-            let result = f64::from_be_bytes(result_bytes);
-            println!("Result: {}", result);
-        }
-        ResultType::String => {
-            let string = String::from_utf8(decrypted_res)
-                .map_err(|e| StealthError::DecryptionFailed(format!("Failed to decode: {e}")))?;
-            println!("Result: {}", string);
-        }
-        ResultType::Binary => {
-            println!("Result (hex): {}", hex::encode(&decrypted_res));
-        }
-    }
-
-    Ok(())
+    HttpServer::new(move || App::new().configure(configure_routes))
+        .bind(address)
+        .map_err(|e| {
+            StealthError::ServerInitializationError(format!("Failed to bind address: {}", e))
+        })?
+        .run()
+        .await
+        .map_err(|e| {
+            StealthError::ServerInitializationError(format!("Failed to start server: {}", e))
+        })
 }
 
-fn server_init() -> (<Kem as KemTrait>::PrivateKey, <Kem as KemTrait>::PublicKey) {
-    let mut csprng = StdRng::from_os_rng();
-    Kem::gen_keypair(&mut csprng)
+#[cfg(feature = "server")]
+fn configure_routes(cfg: &mut web::ServiceConfig) {
+    cfg.route("/userinit", web::get().to(user_init_handler))
+        .route("/process", web::post().to(process_operation));
 }
