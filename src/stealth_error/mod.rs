@@ -34,4 +34,19 @@ pub enum StealthError {
 
     #[error("Encapsulated key deserialization error: {0}")]
     EncapsulatedKeyDeserializationError(String),
+
+    #[error("Failed to create or read from file: {0}")]
+    FileError(String),
+
+    #[error("deserialization error: {0}")]
+    DeserializationError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    #[error("Enarx error: {0}")]
+    EnarxError(String),
+
+    #[error("Server error: {0}")]
+    ServerInitializationError(String),
 }
